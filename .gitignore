@@ -1,0 +1,66 @@
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+vendor/
+
+# Build artifacts
+dist/
+build/
+out/
+target/
+bin/
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# Go
+apps/commerce-go/bin/
+*.exe
+*.test
+*.out
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# .NET
+apps/notification-service/**/bin/
+apps/notification-service/**/obj/
+*.user
+
+# Java
+apps/order-service/target/
+apps/order-service/.gradle/
+apps/order-service/build/
+.idea/
+*.iml
+
+# Next.js
+apps/web/.next/
+apps/web/.turbo/
+next-env.d.ts
+
+# Logs & coverage
+logs/
+*.log
+coverage/
+.nyc_output/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Database
+*.sql.gz
+pgdata/

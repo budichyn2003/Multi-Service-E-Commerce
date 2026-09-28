@@ -1,0 +1,46 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: order-service
+  datasource:
+    url: ${JDBC_URL:jdbc:postgresql://postgres:5432/marketforge}
+    username: ${POSTGRES_USER:marketforge}
+    password: ${POSTGRES_PASSWORD:marketforge}
+    hikari:
+      maximum-pool-size: 10
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    schemas: orders,payments
+    default-schema: orders
+    locations: classpath:db/migration
+  rabbitmq:
+    host: ${RABBITMQ_HOST:rabbitmq}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:marketforge}
+    password: ${RABBITMQ_PASSWORD:marketforge}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  pattern:
+    console: '{"timestamp":"%d{ISO8601}","level":"%p","service":"order-service","logger":"%logger{36}","message":"%m"}%n'
+
+marketforge:
+  commerce-url: ${COMMERCE_GO_URL:http://commerce-go:8080}
+  payment:
+    provider: ${PAYMENT_PROVIDER:mock}
+    webhook-secret: ${PAYMENT_WEBHOOK_SECRET:dev-secret}
