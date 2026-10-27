@@ -12,7 +12,6 @@ import java.util.UUID;
 public class Order {
 
   @Id
-  @GeneratedValue(strategy = GenerationType.UUID)
   private UUID id;
 
   @Column(name = "order_number", unique = true, nullable = false, length = 30)
@@ -86,6 +85,7 @@ public class Order {
 
   // --- getters/setters ---
   public UUID getId() { return id; }
+  public void setId(UUID id) { this.id = id; }
   public String getOrderNumber() { return orderNumber; }
   public void setOrderNumber(String orderNumber) { this.orderNumber = orderNumber; }
   public UUID getUserId() { return userId; }

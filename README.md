@@ -81,11 +81,11 @@ The project is built incrementally (see requirements §84):
 
 - [x] **Phase 0** — Foundation: repo, compose, Postgres, docs
 - [x] **Phase 1** — Go commerce service (product/category/inventory/cart CRUD, checkout reservation)
-- [ ] **Phase 2** — Next.js frontend
-- [ ] **Phase 3** — Redis (cache, invalidation, rate limiting)
-- [ ] **Phase 4** — Spring Boot order service
-- [ ] **Phase 5** — Inventory concurrency (no overselling)
-- [ ] **Phase 6** — Payment (provider abstraction + sandbox)
+- **Phase 2 — In progress:** responsive catalog, search, product detail, and browser-persisted cart. Login, admin editing, and server checkout still depend on the auth/API flow.
+- **Phase 3 — Implemented, stack validation pending:** Redis catalog cache with version invalidation and Redis-backed API rate limiting.
+- **Phase 4 — Implemented, integration validation pending:** Spring order creation uses Commerce quotes for authoritative product prices and an order UUID for reservation correlation.
+- **Phase 5 — Implemented, database concurrency test pending:** idempotent sorted reservations, atomic stock updates, and confirm/release transitions.
+- **Phase 6 — Implemented as local sandbox:** mock payment sessions, payment persistence, expiration, and inventory/order state transitions. This is not a real gateway or webhook.
 - [ ] **Phase 7** — Webhook + idempotency
 - [ ] **Phase 8** — RabbitMQ events
 - [ ] **Phase 9** — .NET notification service

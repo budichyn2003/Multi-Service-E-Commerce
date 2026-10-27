@@ -9,14 +9,14 @@ import (
 
 // ProductInput carries create/update payload for products.
 type ProductInput struct {
-	SKU        string
-	Slug       string
-	Name       string
+	SKU         string
+	Slug        string
+	Name        string
 	Description string
-	Price      float64
-	CompareAt  *float64
-	CategoryID *string
-	Status     string
+	Price       float64
+	CompareAt   *float64
+	CategoryID  *string
+	Status      string
 	WeightGrams *int
 }
 
@@ -50,7 +50,11 @@ func (s *Store) CreateProduct(ctx context.Context, in ProductInput) (Product, er
 		return p, err
 	}
 
-	return p, tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return p, err
+	}
+	s.invalidateCatalog(ctx)
+	return p, nil
 }
 
 // UpdateProduct applies a partial update. Zero-value fields are ignored.
@@ -75,6 +79,9 @@ func (s *Store) UpdateProduct(ctx context.Context, id string, in ProductInput) (
 			&p.CategoryID, &p.Status, &p.WeightGrams, &p.CreatedAt, &p.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
+	}
+	if err == nil {
+		s.invalidateCatalog(ctx)
 	}
 	return &p, err
 }
@@ -102,6 +109,9 @@ func (s *Store) ArchiveProduct(ctx context.Context, id string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	if tag.RowsAffected() > 0 {
+		s.invalidateCatalog(ctx)
+	}
 	return tag.RowsAffected() > 0, nil
 }
 
@@ -114,6 +124,9 @@ func (s *Store) CreateCategory(ctx context.Context, name, slug string, parentID 
 		 RETURNING id, name, slug, parent_id, status, created_at`,
 		name, slug, parentID).
 		Scan(&c.ID, &c.Name, &c.Slug, &c.ParentID, &c.Status, &c.CreatedAt)
+	if err == nil {
+		s.invalidateCatalog(ctx)
+	}
 	return c, err
 }
 
@@ -130,6 +143,9 @@ func (s *Store) UpdateCategory(ctx context.Context, id, name string, parentID *s
 		Scan(&c.ID, &c.Name, &c.Slug, &c.ParentID, &c.Status, &c.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
+	}
+	if err == nil {
+		s.invalidateCatalog(ctx)
 	}
 	return &c, err
 }
@@ -173,6 +189,9 @@ func (s *Store) ArchiveCategory(ctx context.Context, id string) (bool, error) {
 		`UPDATE commerce.categories SET status = 'INACTIVE' WHERE id = $1 AND status = 'ACTIVE'`, id)
 	if err != nil {
 		return false, err
+	}
+	if tag.RowsAffected() > 0 {
+		s.invalidateCatalog(ctx)
 	}
 	return tag.RowsAffected() > 0, nil
 }

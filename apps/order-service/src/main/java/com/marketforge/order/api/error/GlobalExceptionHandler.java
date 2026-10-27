@@ -3,6 +3,7 @@ package com.marketforge.order.api.error;
 import com.marketforge.order.service.exception.IllegalTransitionException;
 import com.marketforge.order.service.exception.InsufficientInventoryException;
 import com.marketforge.order.service.exception.NotFoundException;
+import com.marketforge.order.service.exception.PaymentConflictException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,6 +30,12 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ErrorBody> insufficientInventory(InsufficientInventoryException ex,
       HttpServletRequest req) {
     return build(HttpStatus.CONFLICT, "INSUFFICIENT_INVENTORY", ex.getMessage(), req);
+  }
+
+  @ExceptionHandler(PaymentConflictException.class)
+  public ResponseEntity<ErrorBody> paymentConflict(PaymentConflictException ex,
+      HttpServletRequest req) {
+    return build(HttpStatus.CONFLICT, "PAYMENT_CONFLICT", ex.getMessage(), req);
   }
 
   @ExceptionHandler(MethodArgumentNotValidException.class)

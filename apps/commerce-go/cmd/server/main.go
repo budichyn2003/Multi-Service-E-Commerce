@@ -33,8 +33,16 @@ func main() {
 	defer pool.Close()
 	logger.Info("postgres connected", "env", cfg.Env)
 
-	store := repo.NewStore(pool)
-	h := handlers.New(store, logger)
+	redisClient, err := config.ConnectRedis(ctx, cfg.RedisURL)
+	if err != nil {
+		logger.Error("redis connection failed", "error", err)
+		os.Exit(1)
+	}
+	defer redisClient.Close()
+	logger.Info("redis connected")
+
+	store := repo.NewStore(pool, redisClient)
+	h := handlers.New(store, logger, cfg.InternalServiceToken)
 
 	mux := http.NewServeMux()
 
@@ -43,7 +51,8 @@ func main() {
 	mux.HandleFunc("GET /ready", h.Ready)
 
 	// API v1 — catalog & cart (auth added in later phases).
-	mux.Handle("/api/v1/", httpx.RequestIDMiddleware(httpx.LoggingMiddleware(logger, h.Routes())))
+	api := httpx.RedisRateLimit(redisClient, logger, 120, time.Minute, h.Routes())
+	mux.Handle("/api/v1/", httpx.RequestIDMiddleware(httpx.LoggingMiddleware(logger, api)))
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,

@@ -41,6 +41,8 @@ logging:
 
 marketforge:
   commerce-url: ${COMMERCE_GO_URL:http://commerce-go:8080}
+  internal-token: ${INTERNAL_SERVICE_TOKEN:dev-internal-token-change-me}
   payment:
     provider: ${PAYMENT_PROVIDER:mock}
+    simulation-enabled: ${PAYMENT_SIMULATION_ENABLED:false}
     webhook-secret: ${PAYMENT_WEBHOOK_SECRET:dev-secret}

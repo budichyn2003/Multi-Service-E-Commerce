@@ -7,22 +7,27 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 )
 
 // Config holds all runtime configuration loaded from the environment.
 type Config struct {
-	Port        string
-	DatabaseURL string
-	Env         string
+	Port                 string
+	DatabaseURL          string
+	RedisURL             string
+	InternalServiceToken string
+	Env                  string
 }
 
 // Load reads configuration from environment variables with sensible
 // docker-compose defaults.
 func Load() Config {
 	return Config{
-		Port:        getenv("PORT", "8080"),
-		DatabaseURL: getenv("DATABASE_URL", "postgres://marketforge:marketforge@postgres:5432/marketforge"),
-		Env:         getenv("APP_ENV", "development"),
+		Port:                 getenv("PORT", "8080"),
+		RedisURL:             getenv("REDIS_URL", "redis://redis:6379/0"),
+		InternalServiceToken: getenv("INTERNAL_SERVICE_TOKEN", "dev-internal-token-change-me"),
+		DatabaseURL:          getenv("DATABASE_URL", "postgres://marketforge:marketforge@postgres:5432/marketforge"),
+		Env:                  getenv("APP_ENV", "development"),
 	}
 }
 
@@ -31,6 +36,21 @@ func getenv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func ConnectRedis(ctx context.Context, redisURL string) (*redis.Client, error) {
+	options, err := redis.ParseURL(redisURL)
+	if err != nil {
+		return nil, err
+	}
+	client := redis.NewClient(options)
+	pingCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	if err := client.Ping(pingCtx).Err(); err != nil {
+		_ = client.Close()
+		return nil, err
+	}
+	return client, nil
 }
 
 // ConnectPostgres opens a pgx pool with conservative defaults and waits until

@@ -1,27 +1,32 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import Link from 'next/link';
+import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'MarketForge',
-  description: 'Multi-service marketplace learning project',
+  title: 'MarketForge — Marketplace',
+  description: 'Temukan produk pilihan di MarketForge.',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      <body style={{ margin: 0, fontFamily: 'system-ui, sans-serif' }}>
-        <header
-          style={{
-            padding: '12px 24px',
-            borderBottom: '1px solid #e5e7eb',
-            display: 'flex',
-            justifyContent: 'space-between',
-          }}
-        >
-          <strong>MarketForge</strong>
-          <nav aria-label="main navigation" />
+    <html lang="id">
+      <body>
+        <header className="site-header">
+          <div className="shell header-inner">
+            <Link className="brand" href="/" aria-label="MarketForge beranda">
+              <span className="brand-mark">M</span>arketForge
+            </Link>
+            <nav className="nav-links" aria-label="Navigasi utama">
+              <Link href="/">Produk</Link>
+              <Link href="/cart">Keranjang</Link>
+            </nav>
+          </div>
         </header>
-        <main style={{ maxWidth: 1080, margin: '0 auto', padding: 24 }}>{children}</main>
+        <main className="shell page-content">{children}</main>
+        <footer className="footer">
+          <div className="shell">MarketForge · Belanja lebih mudah, pilihan lebih jelas.</div>
+        </footer>
       </body>
     </html>
   );

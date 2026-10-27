@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
+	"os"
 
 	"github.com/marketforge/commerce-go/internal/auth"
 	"github.com/marketforge/commerce-go/internal/httpx"
@@ -13,13 +15,18 @@ import (
 
 // Handlers exposes catalog/inventory endpoints on /api/v1.
 type Handlers struct {
-	store  *repo.Store
-	logger *slog.Logger
+	store         *repo.Store
+	logger        *slog.Logger
+	internalToken string
 }
 
 // New constructs Handlers.
-func New(store *repo.Store, logger *slog.Logger) *Handlers {
-	return &Handlers{store: store, logger: logger}
+func New(store *repo.Store, logger *slog.Logger, internalTokens ...string) *Handlers {
+	token := os.Getenv("INTERNAL_SERVICE_TOKEN")
+	if len(internalTokens) > 0 {
+		token = internalTokens[0]
+	}
+	return &Handlers{store: store, logger: logger, internalToken: token}
 }
 
 // Routes returns the API subtree mux.
@@ -46,7 +53,10 @@ func (h *Handlers) Routes() http.Handler {
 
 	// Internal — service-to-service (order-service reservation); request-scoped
 	// UUID validation keeps malformed references out of PostgreSQL.
-	mux.HandleFunc("POST /api/v1/inventory/reserve", h.Reserve)
+	mux.Handle("POST /api/v1/inventory/reserve", h.requireInternal(http.HandlerFunc(h.Reserve)))
+	mux.Handle("POST /api/v1/internal/products/quote", h.requireInternal(http.HandlerFunc(h.QuoteProducts)))
+	mux.Handle("POST /api/v1/internal/inventory/{orderID}/confirm", h.requireInternal(http.HandlerFunc(h.ConfirmReservation)))
+	mux.Handle("POST /api/v1/internal/inventory/{orderID}/release", h.requireInternal(http.HandlerFunc(h.ReleaseReservation)))
 
 	// Customer cart & checkout — require identity.
 	mux.Handle("GET /api/v1/cart", customer(http.HandlerFunc(h.GetCart)))
@@ -56,6 +66,18 @@ func (h *Handlers) Routes() http.Handler {
 	mux.Handle("POST /api/v1/checkout", customer(http.HandlerFunc(h.Checkout)))
 
 	return mux
+}
+
+func (h *Handlers) requireInternal(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		provided := r.Header.Get("X-Internal-Token")
+		if h.internalToken == "" || len(provided) != len(h.internalToken) ||
+			subtle.ConstantTimeCompare([]byte(provided), []byte(h.internalToken)) != 1 {
+			httpx.WriteError(w, r, httpx.Unauthorized("internal service authentication required"))
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // admin composes identity extraction + role check.

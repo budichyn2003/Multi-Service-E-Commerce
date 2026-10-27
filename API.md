@@ -108,7 +108,7 @@ with the refresh token (httpOnly cookie or body).
 | notification-service | http://localhost:8083 | http://localhost:8083/swagger |
 | ai-service | http://localhost:8084 | http://localhost:8084/docs |
 
-## Endpoint Map (planned)
+## Endpoint Map
 
 ### Auth (gateway)
 ```
@@ -142,10 +142,16 @@ POST   /api/v1/categories          (admin)
 PATCH  /api/v1/categories/:id      (admin)
 GET    /api/v1/inventory/:productId (admin)
 POST   /api/v1/inventory/:productId/adjust  (admin)
+POST   /api/v1/internal/products/quote      (internal: authoritative prices)
 POST   /api/v1/inventory/reserve            (internal: order-service)
-POST   /api/v1/inventory/release            (internal)
-POST   /api/v1/inventory/confirm            (internal)
+POST   /api/v1/internal/inventory/:orderId/release  (internal)
+POST   /api/v1/internal/inventory/:orderId/confirm (internal)
 ```
+
+Internal commerce endpoints require `X-Internal-Token`, matching
+`INTERNAL_SERVICE_TOKEN`. Product list/detail responses use a 30-second Redis
+cache; catalog writes bump the cache version. The commerce API rate limit is
+120 requests per client IP per minute.
 
 ### Cart (commerce-go)
 ```
@@ -157,20 +163,28 @@ DELETE /api/v1/cart/items/:id
 
 ### Orders (order-service)
 ```
-POST   /api/v1/orders              (Idempotency-Key required)
-GET    /api/v1/orders              (customer: own; admin: all)
+POST   /api/v1/orders
 GET    /api/v1/orders/:orderNumber
-POST   /api/v1/orders/:orderNumber/cancel
-GET    /api/v1/admin/orders        (admin, filters)
-POST   /api/v1/admin/orders/:orderNumber/status  (admin transitions)
+GET    /api/v1/orders/:orderNumber/history
 ```
+
+Create order accepts `userId`, `items: [{productId, quantity}]`, and an optional
+shipping-address snapshot. The order service obtains current names/prices from
+commerce internally; client-provided prices are not accepted. The resulting
+order UUID is the inventory reservation reference.
 
 ### Payments (order-service)
 ```
-POST   /api/v1/orders/:orderNumber/pay
+POST   /api/v1/orders/:orderNumber/payments
 GET    /api/v1/payments/:id
-POST   /webhooks/payment           (signature verified, idempotent)
+POST   /api/v1/payments/:id/simulate-success (mock provider only; opt-in)
 ```
+
+The mock provider creates a 15-minute payment session. Set
+`PAYMENT_SIMULATION_ENABLED=true` only for local sandbox use. Successful
+simulation confirms the inventory reservation and transitions the order to
+`PAID`; expired sessions release stock and transition the order to `EXPIRED`.
+Verified payment webhooks are a later phase.
 
 ### Notifications (notification-service)
 ```

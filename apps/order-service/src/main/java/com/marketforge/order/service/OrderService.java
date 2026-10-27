@@ -46,18 +46,19 @@ public class OrderService {
    */
   @Transactional
   public OrderResponse create(CreateOrderRequest req) {
-    // 1. Server-side price calculation (never trust client totals).
+    // Product names and prices come from the catalog service, never from the client.
+    var quotes = commerce.quoteProducts(req.items());
     BigDecimal subtotal = BigDecimal.ZERO;
     List<OrderItem> items = new ArrayList<>();
-    for (var line : req.items()) {
-      BigDecimal lineTotal = line.unitPrice().multiply(BigDecimal.valueOf(line.quantity()));
+    for (var quote : quotes) {
+      BigDecimal lineTotal = quote.unitPrice().multiply(BigDecimal.valueOf(quote.quantity()));
       subtotal = subtotal.add(lineTotal);
       OrderItem item = new OrderItem();
-      item.setProductId(line.productId());
-      item.setSkuSnapshot(line.sku());
-      item.setProductNameSnapshot(line.name());
-      item.setUnitPrice(line.unitPrice().setScale(2, RoundingMode.HALF_UP));
-      item.setQuantity(line.quantity());
+      item.setProductId(java.util.UUID.fromString(quote.productId()));
+      item.setSkuSnapshot(quote.sku());
+      item.setProductNameSnapshot(quote.name());
+      item.setUnitPrice(quote.unitPrice().setScale(2, RoundingMode.HALF_UP));
+      item.setQuantity(quote.quantity());
       item.setSubtotal(lineTotal.setScale(2, RoundingMode.HALF_UP));
       items.add(item);
     }
@@ -65,18 +66,9 @@ public class OrderService {
     BigDecimal shipping = subtotal.signum() > 0 ? new BigDecimal("10000") : BigDecimal.ZERO;
     BigDecimal total = subtotal.add(shipping);
 
-    // 2. Reserve inventory in the commerce service (throws on failure).
-    try {
-      commerce.reserveInventory(req.orderIdToken(), items);
-    } catch (InsufficientInventoryException e) {
-      throw e;
-    } catch (Exception e) {
-      log.error("inventory reservation failed", e);
-      throw e;
-    }
-
-    // 3. Persist order + items + first history entry atomically.
+    // The order UUID is the stable idempotency/correlation key for inventory.
     Order order = new Order();
+    order.setId(java.util.UUID.randomUUID());
     order.setOrderNumber(generateOrderNumber());
     order.setUserId(req.userId());
     order.setSubtotal(subtotal.setScale(2, RoundingMode.HALF_UP));
@@ -88,18 +80,38 @@ public class OrderService {
       order.addItem(item);
     }
 
-    OrderStatus from = order.getStatus();
-    order.setStatus(OrderStatus.PENDING_PAYMENT);
-    orders.save(order);
+    // Reserve inside the same failure boundary. The Go operation is atomic and
+    // idempotent for this order ID; its TTL is the compensation for DB outages.
+    try {
+      commerce.reserveInventory(order.getId().toString(), items);
+    } catch (InsufficientInventoryException e) {
+      throw e;
+    } catch (Exception e) {
+      log.error("inventory reservation failed", e);
+      throw e;
+    }
 
-    OrderHistory entry = new OrderHistory();
-    entry.setOrderId(order.getId());
-    entry.setFromStatus(null);
-    entry.setToStatus(OrderStatus.PENDING_PAYMENT.name());
-    entry.setReason("order created");
-    entry.setActorType("CUSTOMER");
-    entry.setActorId(req.userId());
-    history.save(entry);
+    // Persist order + items + first history entry atomically.
+    order.setStatus(OrderStatus.PENDING_PAYMENT);
+    try {
+      Order persistedOrder = orders.save(order);
+      OrderHistory entry = new OrderHistory();
+      entry.setOrderId(persistedOrder.getId());
+      entry.setFromStatus(null);
+      entry.setToStatus(OrderStatus.PENDING_PAYMENT.name());
+      entry.setReason("order created");
+      entry.setActorType("CUSTOMER");
+      entry.setActorId(req.userId());
+      history.save(entry);
+      order = persistedOrder;
+    } catch (RuntimeException e) {
+      try {
+        commerce.releaseReservation(order.getId().toString());
+      } catch (Exception compensationError) {
+        log.error("inventory release compensation failed orderId={}", order.getId(), compensationError);
+      }
+      throw e;
+    }
 
     log.info("order created orderNumber={} total={}", order.getOrderNumber(), total);
     return OrderResponse.from(order);
@@ -109,7 +121,7 @@ public class OrderService {
   @Transactional
   public OrderResponse transition(String orderNumber, OrderStatus target, String reason,
       String actorType, java.util.UUID actorId) {
-    Order order = orders.findByOrderNumber(orderNumber)
+    Order order = orders.findByOrderNumberForUpdate(orderNumber)
         .orElseThrow(() -> new NotFoundException("Order not found: " + orderNumber));
 
     OrderStatus from = order.getStatus();
