@@ -200,7 +200,16 @@ Configured in `infrastructure/docker/postgres/init/01-schemas.sql`:
 The PostgreSQL container automatically runs `infrastructure/docker/postgres/init/01-schemas.sql` on its initial initialization.
 
 ### Running Migrations
-Run all migrations using the centralized script:
+
+#### Windows PowerShell
+```powershell
+Get-Content scripts\migrations\commerce\V1__init.sql | docker compose exec -T postgres psql -U marketforge -d marketforge
+Get-Content scripts\migrations\payments\V1__init.sql | docker compose exec -T postgres psql -U marketforge -d marketforge
+Get-Content scripts\migrations\notifications\V1__init.sql | docker compose exec -T postgres psql -U marketforge -d marketforge
+Get-Content scripts\migrations\ai\V1__init.sql | docker compose exec -T postgres psql -U marketforge -d marketforge
+```
+
+#### Git Bash / Linux / macOS
 ```bash
 # Using Makefile
 make migrate
@@ -228,6 +237,13 @@ The seed file `scripts/seed/seed.sql` provides:
 5. **Customer Address**: Pre-configured default shipping address in Jakarta Selatan.
 
 To apply seed data:
+
+#### Windows PowerShell
+```powershell
+Get-Content scripts\seed\seed.sql | docker compose exec -T postgres psql -U marketforge -d marketforge
+```
+
+#### Git Bash / Linux / macOS
 ```bash
 make seed
 # Or:

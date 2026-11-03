@@ -1,7 +1,8 @@
 # MarketForge — Multi-Service E-Commerce & Marketplace Platform
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](#testing-and-validation)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](#testing--validation)
 [![Architecture](https://img.shields.io/badge/architecture-polyglot--microservices-blue)](#architecture--system-design)
+[![Package Manager](https://img.shields.io/badge/package_manager-pnpm-orange)](#prerequisites)
 [![License](https://img.shields.io/badge/license-MIT-green)](#license)
 
 MarketForge is an enterprise-grade, polyglot microservice e-commerce and marketplace platform built as a production-oriented reference implementation. It showcases how diverse backend ecosystems (Go, Java Spring Boot, C# ASP.NET Core, Python FastAPI, and TypeScript NestJS) work harmoniously behind an API Gateway to serve a high-performance Next.js 14 web application.
@@ -18,10 +19,12 @@ MarketForge is an enterprise-grade, polyglot microservice e-commerce and marketp
 - [Architecture & System Design](#architecture--system-design)
 - [Repository Structure](#repository-structure)
 - [Service Directory & Ports](#service-directory--ports)
-- [Prerequisites](#prerequisites)
+- [Prerequisites & Toolchain](#prerequisites--toolchain)
 - [Environment Configuration](#environment-configuration)
-- [Quickstart (Docker Compose)](#quickstart-docker-compose)
-- [Local Development (Hybrid / Native)](#local-development-hybrid--native)
+- [Quickstart: Full Docker Compose](#quickstart-full-docker-compose)
+- [Local Development (Hybrid / Native Mode)](#local-development-hybrid--native-mode)
+  - [Windows PowerShell Guide](#windows-powershell-guide)
+  - [Git Bash / Linux Guide](#git-bash--linux-guide)
 - [Database Migrations & Seed Data](#database-migrations--seed-data)
 - [Demo Accounts](#demo-accounts)
 - [Testing & Validation](#testing--validation)
@@ -35,10 +38,16 @@ MarketForge is an enterprise-grade, polyglot microservice e-commerce and marketp
 
 MarketForge was designed to demonstrate clean architectural boundaries, robust inter-service communication, distributed transaction handling, and defense-in-depth security across multiple technology stacks:
 
-1. **Polyglot Engineering**: Selecting the optimal tool for specific business domains (Go for high-throughput catalog & atomic inventory locks; Spring Boot for transactional order state machines; ASP.NET Core for asynchronous notification pipelines; FastAPI for AI tool calling; NestJS for unified edge gateway routing).
-2. **Resilience & Concurrency**: Atomic inventory reservation via PostgreSQL row-level locks, Redis rate limiting, cache-aside caching with stampede protection, and RabbitMQ message queues with Dead-Letter Queues (DLQ).
+1. **Polyglot Engineering**: Selecting the optimal tool for specific business domains:
+   - **Go**: High-throughput catalog queries & atomic inventory row locks.
+   - **Spring Boot (Java)**: Transactional order state machines, quotes, and payment orchestration.
+   - **ASP.NET Core (C#)**: Asynchronous template rendering and email dispatch.
+   - **FastAPI (Python)**: LLM orchestration and server-side tool calling with security guardrails.
+   - **NestJS (Node.js)**: Edge API gateway, JWT authentication lifecycle, reverse proxying, and Redis sliding-window rate limiting.
+   - **Next.js 14 (React)**: High-performance storefront and admin panels.
+2. **Resilience & Concurrency**: Atomic inventory reservation via PostgreSQL row-level locks (`SELECT ... FOR UPDATE`), Redis rate limiting, cache-aside caching with stampede protection, and RabbitMQ message queues with Dead-Letter Queues (DLQ).
 3. **Enterprise Security**: Centralized JWT authentication (15-minute access token, 30-day rotated refresh tokens), server-side Role-Based Access Control (RBAC), signed internal requests (`X-Internal-Token`), and constant-time webhook signature verification.
-4. **End-to-End User Experience**: Modern, responsive Next.js 14 frontend supporting both customer purchasing workflows and administrative management panels.
+4. **Strict Monorepo Tooling**: All Node.js and frontend applications strictly utilize **`pnpm`** as the sole package manager. NPM and Yarn lockfiles are rejected.
 
 ---
 
@@ -62,19 +71,19 @@ MarketForge was designed to demonstrate clean architectural boundaries, robust i
 
 ## Tech Stack
 
-| Domain | Technology / Framework | Version | Purpose |
-|---|---|---|---|
-| **Frontend** | Next.js (App Router), React, TypeScript | 14.2 / 18.3 | Customer storefront & Admin dashboard |
-| **API Gateway** | NestJS, Express, TypeScript | 10.4 | Reverse proxy, rate limiting, JWT auth, request correlation |
-| **Core Commerce** | Go, Chi router, `pgx/v5`, `go-redis/v9` | 1.22+ | Catalog, categories, cart, atomic inventory reservations |
-| **Order Service** | Java, Spring Boot 3, Spring Data JPA, Flyway | Java 21 | Order lifecycle state machine, payments, quotes, RabbitMQ events |
-| **Notifications** | C#, ASP.NET Core Minimal APIs, EF Core, MailKit | .NET 8.0 | Email notification dispatch, HTML templates, delivery audits |
-| **AI Assistant** | Python, FastAPI, Pydantic, Structlog | 3.11+ | LLM orchestration, tool calling against internal APIs, guardrails |
-| **Primary Database** | PostgreSQL | 16-alpine | Relational persistence with isolated schema-per-service architecture |
-| **Cache & Limit** | Redis | 7-alpine | Catalog cache-aside, sliding-window rate limiting |
-| **Message Broker** | RabbitMQ | 3.13-mgmt | Asynchronous event-driven communication, retry queues, and DLQ |
-| **Email Sandbox** | MailHog | 1.0.1 | Local SMTP server and web interface for inspecting outgoing emails |
-| **Monitoring** | Prometheus & Grafana | Latest | Metrics scraping, request latency histograms, and dashboards |
+| Domain | Technology / Framework | Version | Package Manager | Purpose |
+|---|---|---|---|---|
+| **Frontend** | Next.js (App Router), React, TypeScript | 14.2 / 18.3 | **pnpm** | Customer storefront & Admin dashboard |
+| **API Gateway** | NestJS, Express, TypeScript | 10.4 | **pnpm** | Reverse proxy, rate limiting, JWT auth, request correlation |
+| **Core Commerce** | Go, Chi router, `pgx/v5`, `go-redis/v9` | 1.22+ | Go Modules | Catalog, categories, cart, atomic inventory reservations |
+| **Order Service** | Java, Spring Boot 3, Spring Data JPA, Flyway | Java 17/21 | Maven | Order lifecycle state machine, payments, quotes, RabbitMQ events |
+| **Notifications** | C#, ASP.NET Core Minimal APIs, EF Core, MailKit | .NET 8.0 | NuGet | Email notification dispatch, HTML templates, delivery audits |
+| **AI Assistant** | Python, FastAPI, Pydantic, Structlog | 3.11+ | pip (venv) | LLM orchestration, tool calling against internal APIs, guardrails |
+| **Primary Database** | PostgreSQL | 16-alpine | - | Relational persistence with isolated schema-per-service architecture |
+| **Cache & Limit** | Redis | 7-alpine | - | Catalog cache-aside, sliding-window rate limiting |
+| **Message Broker** | RabbitMQ | 3.13-mgmt | - | Asynchronous event-driven communication, retry queues, and DLQ |
+| **Email Sandbox** | MailHog | 1.0.1 | - | Local SMTP server and web interface for inspecting outgoing emails |
+| **Monitoring** | Prometheus & Grafana | Latest | - | Metrics scraping, request latency histograms, and dashboards |
 
 ---
 
@@ -148,13 +157,13 @@ marketforge/
 │   ├── DATABASE.md             # Schema definitions, ERD, and indexing strategy
 │   ├── DEPLOYMENT.md           # Production deployment topologies & CI/CD guides
 │   ├── OBSERVABILITY.md        # Logging standards, metrics, and health probes
-│   ├── SECURITY.md             # Threat modeling, JWT lifecycle, and RBAC rules
 │   ├── api/                    # Frontend integration guide & communication sequences
 │   ├── architecture/           # Deep-dive flow diagrams & checkout transaction logic
 │   ├── database/               # SQL migrations, seed details, & query performance
 │   ├── decisions/              # Architecture Decision Records (ADR 001 - 010)
 │   ├── learning/               # Engineering learning tracker across polyglot stacks
-│   └── operations/             # Production & local operations runbook
+│   ├── operations/             # Production & local operations runbook
+│   └── security/               # Security guidelines, JWT lifecycle, & RBAC rules
 ├── scripts/
 │   ├── migrations/             # SQL migrations partitioned by service schema
 │   │   ├── commerce/           # V1__init.sql (users, products, inventory, cart)
@@ -162,12 +171,13 @@ marketforge/
 │   │   ├── notifications/      # V1__init.sql (notifications, delivery attempts)
 │   │   └── ai/                 # V1__init.sql (support tickets & conversation logs)
 │   ├── seed/                   # Seed dataset (demo users, categories, 56 products)
-│   ├── migrate.sh              # Unified migration runner
-│   ├── seed.sh                 # Database seed execution script
+│   ├── migrate.sh              # Unified migration runner (Git Bash / Linux)
+│   ├── seed.sh                 # Database seed execution script (Git Bash / Linux)
 │   ├── test.sh                 # Multi-service test suite runner
 │   └── lint.sh                 # Monorepo linting suite
 ├── docker-compose.yml          # Full multi-container composition
 ├── Makefile                    # Developer task runner
+├── SECURITY.md                 # Threat model & security disclosures
 └── .env.example                # Canonical environment variable contract
 ```
 
@@ -192,22 +202,32 @@ marketforge/
 
 ---
 
-## Prerequisites
+## Prerequisites & Toolchain
 
-To run MarketForge, ensure your local development machine has the following installed:
+### Package Manager Requirement: PNPM
+MarketForge requires **`pnpm`** (v9 or v10+) for managing frontend and Node.js dependencies. Do not use `npm` or `yarn`.
 
-### Required for Docker Setup
-- **Docker Desktop** (or Docker Engine on Linux) with Docker Compose v2.20+
-- **Git**
-- Recommended resources: 8 GB+ RAM and 4 CPU cores allocated to Docker.
+Enable pnpm via Corepack or standalone installer:
+```bash
+# Enable via Node.js Corepack:
+corepack enable
+corepack prepare pnpm@latest --activate
 
-### Required for Native / Hybrid Development (without Docker for services)
-- **Node.js**: v20.x or v22.x LTS with `npm`
-- **Go**: v1.22+
-- **Java**: JDK 21 (Temurin, OpenJDK, or Oracle) and Maven 3.9+
-- **.NET SDK**: v8.0+
-- **Python**: v3.11+ with `pip`
-- **PostgreSQL Client** (`psql`) & **Redis CLI**
+# Verify pnpm:
+pnpm --version
+```
+
+### Toolchain Matrix
+| Component | Required Version | Verification Command |
+|---|---|---|
+| **Node.js** | v20.x or v22.x LTS | `node -v` |
+| **pnpm** | v9.x or v10+ | `pnpm -v` |
+| **Go** | v1.22+ | `go version` |
+| **Java** | JDK 17 or 21 | `java -version` |
+| **Maven** | v3.9+ | `mvn -version` |
+| **Python** | v3.11+ | `python --version` |
+| **.NET SDK** (for local notif) | v8.0+ | `dotnet --version` |
+| **Docker & Compose** | Docker v24+, Compose v2.20+ | `docker compose version` |
 
 ---
 
@@ -217,7 +237,11 @@ MarketForge utilizes a centralized configuration file at the repository root.
 
 1. Copy the example environment file:
    ```bash
+   # Git Bash / Linux / macOS
    cp .env.example .env
+
+   # Windows PowerShell
+   Copy-Item .env.example .env
    ```
 
 2. Review the default values in `.env`. Key parameters:
@@ -238,7 +262,7 @@ MarketForge utilizes a centralized configuration file at the repository root.
 
 ---
 
-## Quickstart (Docker Compose)
+## Quickstart: Full Docker Compose
 
 The fastest way to spin up the complete MarketForge platform is with Docker Compose:
 
@@ -254,13 +278,16 @@ cp .env.example .env
 docker compose up -d --build
 
 # 4. Run database migrations and seed data
-# On Linux / macOS / Git Bash:
+# On Git Bash / Linux / macOS:
 make migrate
 make seed
 
-# On Windows PowerShell (without make):
-bash ./scripts/migrate.sh
-bash ./scripts/seed.sh
+# On Windows PowerShell:
+Get-Content scripts\migrations\commerce\V1__init.sql | docker compose exec -T postgres psql -U marketforge -d marketforge
+Get-Content scripts\migrations\payments\V1__init.sql | docker compose exec -T postgres psql -U marketforge -d marketforge
+Get-Content scripts\migrations\notifications\V1__init.sql | docker compose exec -T postgres psql -U marketforge -d marketforge
+Get-Content scripts\migrations\ai\V1__init.sql | docker compose exec -T postgres psql -U marketforge -d marketforge
+Get-Content scripts\seed\seed.sql | docker compose exec -T postgres psql -U marketforge -d marketforge
 ```
 
 Once running, verify that all services report healthy:
@@ -276,7 +303,7 @@ Open your browser:
 
 ---
 
-## Local Development (Hybrid / Native)
+## Local Development (Hybrid / Native Mode)
 
 If you prefer hot-reloading code locally while running supporting infrastructure in Docker:
 
@@ -286,7 +313,7 @@ docker compose up -d postgres redis rabbitmq mailhog
 ```
 
 ### 2. Configure Local Database Connection
-In `.env`, point the database host to `localhost`:
+In `.env`, point the database and broker hosts to `localhost`:
 ```env
 POSTGRES_HOST=localhost
 DATABASE_URL=postgres://marketforge:marketforge@localhost:5432/marketforge
@@ -301,58 +328,94 @@ AI_SERVICE_URL=http://localhost:8084
 GATEWAY_URL=http://localhost:8080
 ```
 
-### 3. Run Individual Services Locally
+---
 
-#### API Gateway (NestJS)
-```bash
-cd apps/gateway
-npm install
-npm run start:dev
+### Windows PowerShell Guide
+
+Open separate PowerShell windows for each service:
+
+#### API Gateway (NestJS with pnpm)
+```powershell
+cd apps\gateway
+pnpm install
+pnpm run start:dev
 # Serves on http://localhost:8080
 ```
 
 #### Core Commerce Service (Go)
-```bash
-cd apps/commerce-go
+```powershell
+cd apps\commerce-go
 go run ./cmd/server
 # Serves on http://localhost:8081
 ```
 
-#### Order Service (Spring Boot)
-```bash
-cd apps/order-service
-# Linux / macOS
-./mvnw spring-boot:run
-# Windows
-.\mvnw.cmd spring-boot:run
+#### Order Service (Spring Boot / Maven)
+```powershell
+cd apps\order-service
+mvn spring-boot:run
 # Serves on http://localhost:8082
 ```
 
 #### Notification Service (ASP.NET Core)
-```bash
-cd apps/notification-service
+```powershell
+cd apps\notification-service
 dotnet run
 # Serves on http://localhost:8083
 ```
 
 #### AI Assistant Service (FastAPI)
-```bash
-cd apps/ai-service
+```powershell
+cd apps\ai-service
 python -m venv .venv
-# Activate venv:
-# Windows: .venv\Scripts\activate
-# Linux/macOS: source .venv/bin/activate
+.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
-# Serves on http://localhost:8000 (mapped to 8084 in gateway config)
+# Serves on http://localhost:8000
 ```
 
-#### Web Frontend (Next.js)
-```bash
-cd apps/web
-npm install
-npm run dev
+#### Web Frontend (Next.js 14 with pnpm)
+```powershell
+cd apps\web
+pnpm install
+pnpm run dev
 # Serves on http://localhost:3000
+```
+
+---
+
+### Git Bash / Linux Guide
+
+#### API Gateway (NestJS with pnpm)
+```bash
+cd apps/gateway && pnpm install && pnpm run start:dev
+```
+
+#### Core Commerce Service (Go)
+```bash
+cd apps/commerce-go && go run ./cmd/server
+```
+
+#### Order Service (Spring Boot / Maven)
+```bash
+cd apps/order-service && mvn spring-boot:run
+```
+
+#### Notification Service (ASP.NET Core)
+```bash
+cd apps/notification-service && dotnet run
+```
+
+#### AI Assistant Service (FastAPI)
+```bash
+cd apps/ai-service
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+#### Web Frontend (Next.js 14 with pnpm)
+```bash
+cd apps/web && pnpm install && pnpm run dev
 ```
 
 ---
@@ -360,29 +423,39 @@ npm run dev
 ## Database Migrations & Seed Data
 
 ### Migrations
-MarketForge executes migrations sequentially per schema:
+MarketForge executes migrations sequentially across 5 service schemas:
 1. `commerce`: Tables for `users`, `addresses`, `categories`, `products`, `product_images`, `inventory`, `reservations`, `carts`, `cart_items`.
 2. `orders`: Order entity, line items snapshot, status state machine audit history (`order_history`).
 3. `payments`: Payment records, webhook events, idempotency keys.
 4. `notifications`: Notification dispatch records, delivery attempt audits.
 5. `ai`: Customer support tickets and conversation logs.
 
-Execute migrations with:
-```bash
-# Via Makefile:
-make migrate
-
-# Or directly:
-docker compose exec -T postgres psql -U marketforge -d marketforge < scripts/migrations/commerce/V1__init.sql
-docker compose exec -T postgres psql -U marketforge -d marketforge < scripts/migrations/payments/V1__init.sql
-docker compose exec -T postgres psql -U marketforge -d marketforge < scripts/migrations/notifications/V1__init.sql
-docker compose exec -T postgres psql -U marketforge -d marketforge < scripts/migrations/ai/V1__init.sql
+#### Execution on Windows PowerShell
+```powershell
+Get-Content scripts\migrations\commerce\V1__init.sql | docker compose exec -T postgres psql -U marketforge -d marketforge
+Get-Content scripts\migrations\payments\V1__init.sql | docker compose exec -T postgres psql -U marketforge -d marketforge
+Get-Content scripts\migrations\notifications\V1__init.sql | docker compose exec -T postgres psql -U marketforge -d marketforge
+Get-Content scripts\migrations\ai\V1__init.sql | docker compose exec -T postgres psql -U marketforge -d marketforge
 ```
-*(Note: `order-service` automatically runs its internal Flyway migrations `V1__orders.sql` and `V2__payments.sql` on startup).*
+
+#### Execution on Git Bash / Linux
+```bash
+make migrate
+# Or:
+bash ./scripts/migrate.sh
+```
+
+*(Note: `order-service` automatically executes its internal Flyway migrations `V1__orders.sql` and `V2__payments.sql` for the `orders` and `payments` schemas on startup).*
 
 ### Seed Data
 The database seed script populates 56 products across 5 active categories, default inventory stocks, default demo customer address, and predefined admin/customer accounts.
 
+#### Execution on Windows PowerShell
+```powershell
+Get-Content scripts\seed\seed.sql | docker compose exec -T postgres psql -U marketforge -d marketforge
+```
+
+#### Execution on Git Bash / Linux
 ```bash
 make seed
 # Or:
@@ -409,20 +482,35 @@ Pre-seeded accounts are provided for immediate testing. On the `/login` page, cl
 ### Automated Monorepo Test Runner
 The root test script automatically detects installed toolchains and executes test suites:
 ```bash
-# Via Makefile:
-make test
-
-# Or directly:
+# Git Bash / Linux
 bash ./scripts/test.sh
 ```
 
-### Manual Service Test Commands
-- **Go Commerce**: `cd apps/commerce-go && go test -v ./...`
-- **Order Service**: `cd apps/order-service && ./mvnw test`
-- **Gateway**: `cd apps/gateway && npm test`
-- **Web Frontend Build**: `cd apps/web && npm run build`
-- **Notification Service**: `cd apps/notification-service && dotnet build`
-- **AI Service**: `cd apps/ai-service && python -c "from app.main import app; print('AI Service valid')"`
+### Service-Specific Test & Build Commands
+- **Web Frontend Build (pnpm)**:
+  ```bash
+  cd apps/web && pnpm build
+  ```
+- **API Gateway Tests & Build (pnpm)**:
+  ```bash
+  cd apps/gateway && pnpm build && pnpm test
+  ```
+- **Go Commerce Unit & Concurrency Tests**:
+  ```bash
+  cd apps/commerce-go && go test -v ./...
+  ```
+- **Spring Boot Order Service Tests**:
+  ```bash
+  cd apps/order-service && mvn test
+  ```
+- **Notification Service Build**:
+  ```bash
+  cd apps/notification-service && dotnet build
+  ```
+- **AI Service Sanity Check**:
+  ```bash
+  cd apps/ai-service && python -c "from app.main import app; print('AI Service valid')"
+  ```
 
 ---
 
@@ -444,7 +532,7 @@ MarketForge incorporates unified structured JSON logging, standard health check 
 
 ### 1. Port Conflicts (Address already in use)
 - **Symptom**: Docker fails with `bind: address already in use` for ports `5432`, `6379`, `3000`, or `8080`.
-- **Solution**: Stop locally running PostgreSQL (`net stop postgresql` on Windows or `systemctl stop postgresql` on Linux) or Redis instances. Alternatively, override the conflicting host ports in your `.env` file (e.g. `POSTGRES_PORT=5433`).
+- **Solution**: Stop locally running PostgreSQL (`net stop postgresql` on Windows or `systemctl stop postgresql` on Linux) or Redis instances. Alternatively, override conflicting host ports in your `.env` file (e.g. `POSTGRES_PORT=5433`).
 
 ### 2. Next.js CSR Bail-out / Suspense Warnings
 - **Symptom**: Build warnings regarding `useSearchParams()` outside a Suspense boundary.
@@ -456,7 +544,7 @@ MarketForge incorporates unified structured JSON logging, standard health check 
 
 ### 4. Database Schema Not Found
 - **Symptom**: `relation "commerce.products" does not exist`.
-- **Solution**: The initial database volume may have initialized before `01-schemas.sql` ran. Run `make migrate` or destroy and recreate the volume with `docker compose down -v && docker compose up -d` followed by `make migrate && make seed`.
+- **Solution**: The initial database volume may have initialized before `01-schemas.sql` ran. Run the migration scripts via PowerShell or Git Bash to populate the schemas.
 
 ### 5. RabbitMQ Consumer Connection Delay
 - **Symptom**: Services restart during initial boot with RabbitMQ connection errors.

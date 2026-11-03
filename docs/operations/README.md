@@ -1,10 +1,25 @@
 # MarketForge — Operations & Runbook
 
-This runbook covers day-to-day operations, local environments, service monitoring, background workers, and incident resolution for MarketForge.
+This runbook covers day-to-day operations, local environments, service monitoring, background workers, and incident resolution for MarketForge across both **Windows PowerShell** and **Git Bash / Linux** environments.
 
 ---
 
-## 1. Service Management & Run Modes
+## 1. Package Manager Standard: PNPM
+
+All Node.js applications (`apps/web` and `apps/gateway`) strictly require **`pnpm`**. NPM and Yarn are not used.
+
+```bash
+# Enable pnpm via Node.js Corepack:
+corepack enable
+corepack prepare pnpm@latest --activate
+
+# Verify version:
+pnpm --version
+```
+
+---
+
+## 2. Service Management & Run Modes
 
 ### Mode A: Full Docker Compose (Recommended for Complete System Testing)
 
@@ -34,6 +49,8 @@ docker compose down
 docker compose down -v
 ```
 
+---
+
 ### Mode B: Hybrid Local Development
 
 Run supporting infrastructure in Docker and run application code natively for fast iteration and debugging.
@@ -43,28 +60,35 @@ Run supporting infrastructure in Docker and run application code natively for fa
 docker compose up -d postgres redis rabbitmq mailhog
 ```
 
-#### 2. Verify Infrastructure Health
-```bash
-docker compose ps
-# Ensure mf-postgres, mf-redis, mf-rabbitmq, and mf-mailhog report "healthy" or "running"
-```
+#### 2. Running Services Locally
 
-#### 3. Run Individual Services (Working Directory & Execution Commands)
+#### Windows PowerShell Commands
 
 | Service | Working Directory | Command | Default Port |
 |---|---|---|---|
-| **API Gateway** | `apps/gateway` | `npm run start:dev` | `http://localhost:8080` |
+| **API Gateway** | `apps\gateway` | `pnpm install; pnpm run start:dev` | `http://localhost:8080` |
+| **Web Storefront** | `apps\web` | `pnpm install; pnpm run dev` | `http://localhost:3000` |
+| **Commerce Go** | `apps\commerce-go` | `go run .\cmd\server` | `http://localhost:8081` |
+| **Order Service** | `apps\order-service` | `mvn spring-boot:run` | `http://localhost:8082` |
+| **Notification Service** | `apps\notification-service` | `dotnet run` | `http://localhost:8083` |
+| **AI Assistant** | `apps\ai-service` | `python -m venv .venv; .venv\Scripts\Activate.ps1; pip install -r requirements.txt; uvicorn app.main:app --reload --port 8000` | `http://localhost:8000` |
+
+#### Git Bash / Linux Commands
+
+| Service | Working Directory | Command | Default Port |
+|---|---|---|---|
+| **API Gateway** | `apps/gateway` | `pnpm install && pnpm run start:dev` | `http://localhost:8080` |
+| **Web Storefront** | `apps/web` | `pnpm install && pnpm run dev` | `http://localhost:3000` |
 | **Commerce Go** | `apps/commerce-go` | `go run ./cmd/server` | `http://localhost:8081` |
-| **Order Service** | `apps/order-service` | `./mvnw spring-boot:run` (Unix) / `.\mvnw.cmd spring-boot:run` (Win) | `http://localhost:8082` |
+| **Order Service** | `apps/order-service` | `mvn spring-boot:run` | `http://localhost:8082` |
 | **Notification Service** | `apps/notification-service` | `dotnet run` | `http://localhost:8083` |
-| **AI Assistant** | `apps/ai-service` | `uvicorn app.main:app --reload --port 8000` | `http://localhost:8000` |
-| **Web Storefront** | `apps/web` | `npm run dev` | `http://localhost:3000` |
+| **AI Assistant** | `apps/ai-service` | `python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt && uvicorn app.main:app --reload --port 8000` | `http://localhost:8000` |
 
 ---
 
-## 2. Database Administration
+## 3. Database Administration & Migrations
 
-### Interactive Database Access
+### Interactive Database Shells
 ```bash
 # Open interactive psql shell inside postgres container
 docker compose exec postgres psql -U marketforge -d marketforge
@@ -73,23 +97,65 @@ docker compose exec postgres psql -U marketforge -d marketforge
 docker compose exec redis redis-cli
 ```
 
-### Applying Migrations Manually
+### Applying Migrations
+
+#### Windows PowerShell
+```powershell
+Get-Content scripts\migrations\commerce\V1__init.sql | docker compose exec -T postgres psql -U marketforge -d marketforge
+Get-Content scripts\migrations\payments\V1__init.sql | docker compose exec -T postgres psql -U marketforge -d marketforge
+Get-Content scripts\migrations\notifications\V1__init.sql | docker compose exec -T postgres psql -U marketforge -d marketforge
+Get-Content scripts\migrations\ai\V1__init.sql | docker compose exec -T postgres psql -U marketforge -d marketforge
+```
+
+#### Git Bash / Linux
 ```bash
-# Execute schema migration scripts
-docker compose exec -T postgres psql -U marketforge -d marketforge < scripts/migrations/commerce/V1__init.sql
-docker compose exec -T postgres psql -U marketforge -d marketforge < scripts/migrations/payments/V1__init.sql
-docker compose exec -T postgres psql -U marketforge -d marketforge < scripts/migrations/notifications/V1__init.sql
-docker compose exec -T postgres psql -U marketforge -d marketforge < scripts/migrations/ai/V1__init.sql
+make migrate
+# Or:
+bash ./scripts/migrate.sh
 ```
 
 ### Seeding Demo Data
+
+#### Windows PowerShell
+```powershell
+Get-Content scripts\seed\seed.sql | docker compose exec -T postgres psql -U marketforge -d marketforge
+```
+
+#### Git Bash / Linux
 ```bash
-docker compose exec -T postgres psql -U marketforge -d marketforge < scripts/seed/seed.sql
+make seed
+# Or:
+bash ./scripts/seed.sh
 ```
 
 ---
 
-## 3. Health Checks & Probes
+## 4. Testing & Validation Commands
+
+- **Web Frontend Build**:
+  ```bash
+  cd apps/web && pnpm build
+  ```
+- **API Gateway Unit Tests**:
+  ```bash
+  cd apps/gateway && pnpm test
+  ```
+- **Go Commerce Tests**:
+  ```bash
+  cd apps/commerce-go && go test -v ./...
+  ```
+- **Order Service Tests**:
+  ```bash
+  cd apps/order-service && mvn test
+  ```
+- **Notification Service Build**:
+  ```bash
+  cd apps/notification-service && dotnet build
+  ```
+
+---
+
+## 5. Health Checks & Probes
 
 | Target | Liveness Probe | Readiness Probe | Expected Status |
 |---|---|---|---|
@@ -101,7 +167,7 @@ docker compose exec -T postgres psql -U marketforge -d marketforge < scripts/see
 
 ---
 
-## 4. Message Broker & Event Processing
+## 6. Message Broker & Event Processing
 
 ### RabbitMQ Topology (`infrastructure/rabbitmq/definitions.json`)
 * **Topic Exchange**: `marketforge.events`
@@ -122,7 +188,7 @@ Open the web interface at [http://localhost:15672](http://localhost:15672) (User
 
 ---
 
-## 5. Troubleshooting & Incident Runbooks
+## 7. Troubleshooting & Incident Runbooks
 
 ### Incident 1: "Address already in use" on startup
 * **Root Cause**: A local service (e.g. system PostgreSQL or existing Node instance) is holding port `5432`, `6379`, `8080`, or `3000`.
@@ -134,7 +200,7 @@ Open the web interface at [http://localhost:15672](http://localhost:15672) (User
 ### Incident 2: Products return 404 or empty list
 * **Root Cause**: Database was not seeded or Redis contains stale empty cache.
 * **Resolution**:
-  1. Re-run migrations and seeds: `make migrate && make seed`.
+  1. Re-run migrations and seeds.
   2. Flush Redis cache: `docker compose exec redis redis-cli flushall`.
 
 ### Incident 3: Authentication failure with 401 UNAUTHORIZED on Admin pages
