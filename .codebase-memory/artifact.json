@@ -1,11 +1,11 @@
 {
     "schema_version": 2,
-    "commit": "35fa2f94488bae5336f72ecef3ec2a70b2c12235",
-    "indexed_at": "2026-11-03T06:09:20Z",
+    "commit": "1cdf3ba88ffc6142c4c6d779fc8d7c6b5820da0f",
+    "indexed_at": "2026-11-03T06:31:22Z",
     "project": "D-Kumpulan-Projek-Full-Stack-Development-ecommerce",
-    "nodes": 2013,
-    "edges": 5097,
-    "original_size": 10092544,
-    "compressed_size": 1524420,
+    "nodes": 2141,
+    "edges": 5252,
+    "original_size": 10223616,
+    "compressed_size": 1556843,
     "compression_level": 3
 }

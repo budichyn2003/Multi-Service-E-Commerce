@@ -65,4 +65,5 @@ Thumbs.db
 *.sql.gz
 pgdata/
 
-/docs
+ui.md
+Multi-Service-E-Commerce-Marketplace-Requirements.md
