@@ -146,5 +146,15 @@ sequenceDiagram
 | **Notifikasi**| GET | `/api/v1/notifications` | Riwayat notifikasi user |
 | **AI Assistant** | POST | `/api/v1/assistant/chat` | Chat asisten belanja cerdas |
 | | POST | `/api/v1/assistant/tickets` | Buat tiket bantuan pelanggan |
+| **Admin** | POST | `/api/v1/admin/products` | Buat produk baru |
+| | PATCH | `/api/v1/admin/products/:id` | Ubah detail produk |
+| | DELETE | `/api/v1/admin/products/:id` | Arsipkan produk |
+| | POST | `/api/v1/admin/categories` | Buat kategori baru |
+| | PATCH | `/api/v1/admin/categories/:id` | Ubah kategori |
+| | DELETE | `/api/v1/admin/categories/:id` | Hapus kategori |
+| | POST | `/api/v1/admin/inventory/:id/adjust` | Tambah/kurangi stok inventory |
+| | GET | `/api/v1/orders` (Role Admin) | Semua order dalam sistem |
+| | POST | `/api/v1/orders/:orderNumber/status` | Ubah status order (state machine) |
+| | GET | `/api/v1/admin/notifications` | Log audit notifikasi sistem |
 
 Rincian spesifikasi lengkap per endpoint tersedia di [API.md](../API.md).
