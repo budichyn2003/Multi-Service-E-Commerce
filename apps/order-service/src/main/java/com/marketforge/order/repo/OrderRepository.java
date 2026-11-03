@@ -1,6 +1,7 @@
 package com.marketforge.order.repo;
 
 import com.marketforge.order.domain.Order;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import jakarta.persistence.LockModeType;
@@ -15,4 +16,8 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query("select o from Order o where o.orderNumber = :orderNumber")
   Optional<Order> findByOrderNumberForUpdate(@Param("orderNumber") String orderNumber);
+
+  List<Order> findByUserIdOrderByCreatedAtDesc(UUID userId);
+
+  List<Order> findAllByOrderByCreatedAtDesc();
 }

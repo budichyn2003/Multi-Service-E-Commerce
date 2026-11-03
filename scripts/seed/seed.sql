@@ -4,9 +4,9 @@
 INSERT INTO commerce.users (name, email, password_hash, role, status)
 VALUES
   ('MarketForge Admin', 'admin@marketforge.local',
-   '$argon2id$PLACEHOLDER-seed-admin', 'ADMIN', 'ACTIVE'),
+   '$2b$10$1uYd7wBr1Qaq7vLwL9wv3.BsJJzsZlLb7NA.oEFO8wh2vuSA.Fs7C', 'ADMIN', 'ACTIVE'),
   ('Demo Customer', 'customer@marketforge.local',
-   '$argon2id$PLACEHOLDER-seed-customer', 'CUSTOMER', 'ACTIVE')
+   '$2b$10$VKFGLzUQXo9DSJJx175K6u0rjp0Efsy2i8UZ1j3P5uWSIFLZOukhm', 'CUSTOMER', 'ACTIVE')
 ON CONFLICT (email) DO NOTHING;
 
 INSERT INTO commerce.categories (name, slug, parent_id, status)

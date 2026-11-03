@@ -9,7 +9,7 @@ POSTGRES_USER="${POSTGRES_USER:-marketforge}"
 POSTGRES_DB="${POSTGRES_DB:-marketforge}"
 
 echo "==> Running migrations..."
-for dir in scripts/migrations/commerce scripts/migrations/payments; do
+for dir in scripts/migrations/commerce scripts/migrations/payments scripts/migrations/notifications scripts/migrations/ai; do
   for file in "$dir"/*.sql; do
     [ -e "$file" ] || continue
     echo "    applying $file"

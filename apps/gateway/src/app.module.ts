@@ -1,9 +1,29 @@
 import { Module } from '@nestjs/common';
 import { HealthController } from './health.controller';
+import { DatabaseService } from './database/database.service';
+import { RedisService } from './redis/redis.service';
+import { AuthService } from './auth/auth.service';
+import { AuthController } from './auth/auth.controller';
+import { UserService } from './user/user.service';
+import { UserController } from './user/user.controller';
+import { ProxyService } from './proxy/proxy.service';
+import { ProxyController } from './proxy/proxy.controller';
+import { RolesGuard } from './auth/roles.guard';
 
 @Module({
-  controllers: [HealthController],
-  // Auth module (JWT + refresh), rate limiting, and reverse-proxy routes are
-  // added here in Phases 1-3 (see README roadmap).
+  controllers: [
+    HealthController,
+    AuthController,
+    UserController,
+    ProxyController,
+  ],
+  providers: [
+    DatabaseService,
+    RedisService,
+    AuthService,
+    UserService,
+    ProxyService,
+    RolesGuard,
+  ],
 })
 export class AppModule {}

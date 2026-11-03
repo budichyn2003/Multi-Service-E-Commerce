@@ -1,49 +1,85 @@
 'use client';
 
-import { useState } from 'react';
-import type { Product } from '@/lib/commerce';
+import React, { useState } from 'react';
+import { useCart } from '@/lib/cart-context';
 
-export type CartLine = Pick<Product, 'id' | 'slug' | 'name' | 'price'> & {
-  quantity: number;
-};
+export interface ProductData {
+  id: string;
+  sku?: string;
+  slug?: string;
+  name: string;
+  price: number;
+  stock?: number;
+}
 
-const CART_KEY = 'marketforge-cart-v1';
-
-export default function AddToCartButton({ product }: { product: Product }) {
+export default function AddToCartButton({
+  product,
+  quantity = 1,
+  className,
+}: {
+  product: ProductData;
+  quantity?: number;
+  className?: string;
+}) {
+  const { addItem } = useCart();
+  const [loading, setLoading] = useState(false);
   const [added, setAdded] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-  function addToCart() {
-    setError('');
+  const isOutOfStock = product.stock !== undefined && product.stock <= 0;
+
+  async function handleClick(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (loading || isOutOfStock) return;
+
+    setLoading(true);
+    setError(null);
+
     try {
-      const current = JSON.parse(localStorage.getItem(CART_KEY) ?? '[]') as CartLine[];
-      const existing = current.find((line) => line.id === product.id);
-      if (existing) existing.quantity += 1;
-      else {
-        current.push({
+      await addItem(
+        {
           id: product.id,
-          slug: product.slug,
           name: product.name,
           price: product.price,
-          quantity: 1,
-        });
-      }
-      localStorage.setItem(CART_KEY, JSON.stringify(current));
-      window.dispatchEvent(new Event('marketforge-cart-change'));
+          slug: product.slug,
+          sku: product.sku,
+        },
+        quantity,
+      );
       setAdded(true);
-      window.setTimeout(() => setAdded(false), 1800);
-    } catch (error) {
-      setAdded(false);
-      setError(error instanceof Error ? error.message : 'Keranjang tidak dapat disimpan di browser ini.');
+      setTimeout(() => setAdded(false), 2000);
+    } catch (err: any) {
+      setError(err?.message || 'Gagal menambahkan');
+    } finally {
+      setLoading(false);
     }
   }
 
-  return (
-    <span>
-      <button type="button" onClick={addToCart} aria-live="polite">
-        {added ? 'Ditambahkan' : 'Tambah ke keranjang'}
+  if (isOutOfStock) {
+    return (
+      <button type="button" disabled className={className} style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+        Stok Habis
       </button>
-      {error && <span className="muted" role="alert">{error}</span>}
-    </span>
+    );
+  }
+
+  return (
+    <div style={{ display: 'inline-flex', flexDirection: 'column', gap: '0.25rem' }}>
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={loading}
+        className={className}
+        aria-live="polite"
+      >
+        {loading ? 'Menambahkan…' : added ? '✓ Ditambahkan' : 'Tambah ke Keranjang'}
+      </button>
+      {error && (
+        <span className="muted" role="alert" style={{ fontSize: '0.75rem', color: 'var(--danger)' }}>
+          {error}
+        </span>
+      )}
+    </div>
   );
 }

@@ -1,32 +1,35 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import Link from 'next/link';
 import './globals.css';
+import { AuthProvider } from '@/lib/auth-context';
+import { CartProvider } from '@/lib/cart-context';
+import Header from '@/components/Header';
+import AiFloatingWidget from '@/components/AiFloatingWidget';
 
 export const metadata: Metadata = {
-  title: 'MarketForge — Marketplace',
-  description: 'Temukan produk pilihan di MarketForge.',
+  title: 'MarketForge — Modern E-Commerce Platform',
+  description: 'Temukan produk pilihan berkualitas di MarketForge Marketplace.',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="id">
       <body>
-        <header className="site-header">
-          <div className="shell header-inner">
-            <Link className="brand" href="/" aria-label="MarketForge beranda">
-              <span className="brand-mark">M</span>arketForge
-            </Link>
-            <nav className="nav-links" aria-label="Navigasi utama">
-              <Link href="/">Produk</Link>
-              <Link href="/cart">Keranjang</Link>
-            </nav>
-          </div>
-        </header>
-        <main className="shell page-content">{children}</main>
-        <footer className="footer">
-          <div className="shell">MarketForge · Belanja lebih mudah, pilihan lebih jelas.</div>
-        </footer>
+        <AuthProvider>
+          <CartProvider>
+            <Header />
+            <main className="shell page-content">{children}</main>
+            <AiFloatingWidget />
+            <footer className="footer">
+              <div className="shell" style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+                <div>MarketForge · E-Commerce Marketplace Modern & Terpercaya.</div>
+                <div className="muted" style={{ fontSize: '0.8rem' }}>
+                  Multi-Service Microservices Architecture: Commerce, Order, Notification, AI
+                </div>
+              </div>
+            </footer>
+          </CartProvider>
+        </AuthProvider>
       </body>
     </html>
   );

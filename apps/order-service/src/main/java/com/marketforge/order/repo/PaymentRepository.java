@@ -19,5 +19,7 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
   @Query("select p from Payment p where p.id = :paymentId")
   Optional<Payment> findByIdForUpdate(@Param("paymentId") UUID paymentId);
 
+  Optional<Payment> findByExternalPaymentId(String externalPaymentId);
+
   List<Payment> findByStatusAndExpiresAtBefore(String status, Instant now);
 }

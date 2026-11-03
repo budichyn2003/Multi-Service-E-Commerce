@@ -43,6 +43,7 @@ fi
 if command -v npm >/dev/null 2>&1; then
   if [ -d apps/gateway/node_modules ]; then
     run_step "Gateway build" bash -c "cd apps/gateway && npm run build"
+    run_step "Gateway tests" bash -c "cd apps/gateway && npm test"
   else
     echo "==> gateway deps not installed, skipping (npm ci first)"
   fi

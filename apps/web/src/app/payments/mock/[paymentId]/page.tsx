@@ -1,7 +1,5 @@
-import MockPayment from '@/components/MockPayment';
+import PaymentView from '@/components/PaymentView';
 
-type Props = { params: { paymentId: string } };
-
-export default function MockPaymentPage({ params }: Props) {
-  return <MockPayment paymentId={params.paymentId} />;
+export default function MockPaymentPage({ params }: { params: { paymentId: string } }) {
+  return <PaymentView paymentId={params.paymentId} />;
 }

@@ -1,101 +1,169 @@
 'use client';
 
+import React from 'react';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
-import type { CartLine } from './AddToCartButton';
+import { useRouter } from 'next/navigation';
+import { useCart } from '@/lib/cart-context';
+import { useAuth } from '@/lib/auth-context';
 import { formatRupiah } from '@/lib/commerce';
+import StatusNotice from './StatusNotice';
 
-const CART_KEY = 'marketforge-cart-v1';
+const STANDARD_SHIPPING_FEE = 10000;
 
 export default function CartPage() {
-  const [items, setItems] = useState<CartLine[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  const [loadError, setLoadError] = useState('');
+  const router = useRouter();
+  const { items, totalAmount, updateQuantity, removeItem, loading } = useCart();
+  const { user } = useAuth();
 
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(CART_KEY) ?? '[]') as CartLine[];
-      setItems(Array.isArray(saved) ? saved : []);
-    } catch {
-      setItems([]);
-      setLoadError('Data keranjang browser tidak dapat dibaca.');
+  const handleCheckoutClick = () => {
+    if (!user) {
+      router.push('/login?redirect=/checkout');
+    } else {
+      router.push('/checkout');
     }
-    setLoaded(true);
-  }, []);
+  };
 
-  const total = useMemo(
-    () => items.reduce((sum, item) => sum + item.price * item.quantity, 0),
-    [items],
-  );
-
-  function update(next: CartLine[]) {
-    setItems(next);
-    localStorage.setItem(CART_KEY, JSON.stringify(next));
+  if (loading && items.length === 0) {
+    return <StatusNotice type="loading" title="Memuat keranjang belanja…" />;
   }
 
-  if (!loaded) return <p role="status">Memuat keranjang…</p>;
+  if (items.length === 0) {
+    return (
+      <section style={{ maxWidth: '640px', margin: '2rem auto' }}>
+        <StatusNotice
+          type="empty"
+          title="Keranjang Belanja Kosong"
+          message="Anda belum menambahkan produk ke keranjang belanja."
+          actionText="Jelajahi Produk Sekarang"
+          actionHref="/"
+        />
+      </section>
+    );
+  }
+
+  const grandTotal = totalAmount + STANDARD_SHIPPING_FEE;
 
   return (
     <section>
-      <p className="eyebrow">Belanja Anda</p>
-      <h1>Keranjang</h1>
-      {loadError && <p className="status-box error" role="alert">{loadError}</p>}
-      {items.length === 0 ? (
-        <div className="empty-state">
-          <p>Keranjang masih kosong.</p>
-          <Link className="text-link" href="/">Jelajahi produk</Link>
+      <p className="eyebrow">Pesanan Anda</p>
+      <h1 style={{ marginBottom: '1.5rem' }}>Keranjang Belanja</h1>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem', alignItems: 'start' }}>
+        {/* Item List */}
+        <div className="cart-list" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {items.map((item) => (
+            <article
+              key={item.id}
+              className="card"
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '1.25rem',
+                gap: '1rem',
+                flexWrap: 'wrap',
+              }}
+            >
+              <div style={{ flex: '1 1 200px' }}>
+                <h3 style={{ fontSize: '1.1rem', margin: '0 0 0.25rem 0' }}>
+                  {item.slug ? (
+                    <Link href={`/products/${encodeURIComponent(item.slug)}`} className="text-link">
+                      {item.name}
+                    </Link>
+                  ) : (
+                    item.name
+                  )}
+                </h3>
+                <p className="muted" style={{ margin: 0, fontSize: '0.875rem' }}>
+                  {formatRupiah(item.price)} per item
+                </p>
+                {item.sku && <span className="badge badge-neutral" style={{ marginTop: '0.25rem' }}>SKU: {item.sku}</span>}
+              </div>
+
+              {/* Quantity Controls */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div className="quantity-controls" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    style={{ width: '32px', height: '32px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                    aria-label={`Kurangi kuantitas ${item.name}`}
+                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                  >
+                    −
+                  </button>
+                  <span style={{ minWidth: '24px', textAlign: 'center', fontWeight: 600 }}>
+                    {item.quantity}
+                  </span>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    style={{ width: '32px', height: '32px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                    aria-label={`Tambah kuantitas ${item.name}`}
+                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                  >
+                    +
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  className="secondary-button"
+                  style={{ color: 'var(--danger)', borderColor: 'rgba(255, 170, 161, 0.3)', padding: '0.35rem 0.65rem' }}
+                  onClick={() => removeItem(item.id)}
+                  title="Hapus dari keranjang"
+                >
+                  Hapus
+                </button>
+              </div>
+
+              {/* Subtotal */}
+              <div style={{ textAlign: 'right', minWidth: '120px' }}>
+                <span className="price" style={{ fontSize: '1.1rem' }}>
+                  {formatRupiah(item.price * item.quantity)}
+                </span>
+              </div>
+            </article>
+          ))}
         </div>
-      ) : (
-        <>
-          <div className="cart-list">
-            {items.map((item) => (
-              <article className="cart-row" key={item.id}>
-                <div>
-                  <h2>{item.name}</h2>
-                  <p className="muted">{formatRupiah(item.price)} per item</p>
-                </div>
-                <div className="quantity-controls" aria-label={`Jumlah ${item.name}`}>
-                  <button
-                    className="secondary-button"
-                    type="button"
-                    aria-label={`Kurangi ${item.name}`}
-                    onClick={() => update(items.flatMap((line) =>
-                      line.id !== item.id ? [line] : line.quantity <= 1 ? [] : [{ ...line, quantity: line.quantity - 1 }],
-                    ))}
-                  >−</button>
-                  <span aria-live="polite">{item.quantity}</span>
-                  <button
-                    className="secondary-button"
-                    type="button"
-                    aria-label={`Tambah ${item.name}`}
-                    onClick={() => update(items.map((line) =>
-                      line.id === item.id ? { ...line, quantity: line.quantity + 1 } : line,
-                    ))}
-                  >+</button>
-                  <button
-                    className="secondary-button"
-                    type="button"
-                    onClick={() => update(items.filter((line) => line.id !== item.id))}
-                  >Hapus</button>
-                </div>
-                <strong>{formatRupiah(item.price * item.quantity)}</strong>
-              </article>
-            ))}
+
+        {/* Order Summary */}
+        <aside className="card" style={{ padding: '1.5rem', backgroundColor: 'var(--surface-raised)' }}>
+          <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>Ringkasan Belanja</h2>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem', fontSize: '0.95rem' }}>
+            <span className="muted">Subtotal ({items.reduce((s, i) => s + i.quantity, 0)} barang)</span>
+            <span>{formatRupiah(totalAmount)}</span>
           </div>
-          <div className="cart-summary">
-            <div>
-              <span className="muted">Subtotal · belum termasuk ongkir</span>
-              <div className="price">{formatRupiah(total)}</div>
-            </div>
-            <button type="button" disabled title="Checkout tersedia setelah sesi login dan order API terhubung.">
-              Checkout segera hadir
-            </button>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', fontSize: '0.95rem' }}>
+            <span className="muted">Estimasi Biaya Pengiriman</span>
+            <span>{formatRupiah(STANDARD_SHIPPING_FEE)}</span>
           </div>
-          <p className="muted" role="note">
-            Keranjang saat ini tersimpan di browser. Checkout akan diaktifkan setelah autentikasi dan integrasi order siap.
-          </p>
-        </>
-      )}
+
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '1rem 0' }} />
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '1.5rem' }}>
+            <span style={{ fontWeight: 600 }}>Total Tagihan</span>
+            <span className="price" style={{ fontSize: '1.5rem' }}>{formatRupiah(grandTotal)}</span>
+          </div>
+
+          <button
+            type="button"
+            className="button"
+            style={{ width: '100%', padding: '0.85rem', fontSize: '1rem' }}
+            onClick={handleCheckoutClick}
+          >
+            {user ? 'Lanjut ke Checkout' : 'Masuk untuk Checkout'}
+          </button>
+
+          {!user && (
+            <p className="muted" style={{ fontSize: '0.8rem', marginTop: '0.75rem', textAlign: 'center' }}>
+              Anda akan diarahkan ke halaman masuk sebelum melakukan pembayaran pesanan.
+            </p>
+          )}
+        </aside>
+      </div>
     </section>
   );
 }

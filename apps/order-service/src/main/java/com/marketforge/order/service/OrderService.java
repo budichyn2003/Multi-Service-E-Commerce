@@ -12,13 +12,20 @@ import com.marketforge.order.service.exception.InsufficientInventoryException;
 import com.marketforge.order.service.exception.NotFoundException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.SplittableRandom;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,15 +35,24 @@ public class OrderService {
   private static final Logger log = LoggerFactory.getLogger(OrderService.class);
   private static final SplittableRandom RANDOM = new SplittableRandom();
   private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
+  private static final String EXCHANGE = "marketforge.events";
 
   private final OrderRepository orders;
   private final OrderHistoryRepository history;
   private final CommerceClient commerce;
+  private final Optional<RabbitTemplate> rabbitTemplate;
 
   public OrderService(OrderRepository orders, OrderHistoryRepository history, CommerceClient commerce) {
+    this(orders, history, commerce, Optional.empty());
+  }
+
+  @Autowired
+  public OrderService(OrderRepository orders, OrderHistoryRepository history, CommerceClient commerce,
+      Optional<RabbitTemplate> rabbitTemplate) {
     this.orders = orders;
     this.history = history;
     this.commerce = commerce;
+    this.rabbitTemplate = rabbitTemplate != null ? rabbitTemplate : Optional.empty();
   }
 
   /**
@@ -46,6 +62,10 @@ public class OrderService {
    */
   @Transactional
   public OrderResponse create(CreateOrderRequest req) {
+    if (req.userId() == null) {
+      throw new IllegalArgumentException("User ID is required to create an order");
+    }
+
     // Product names and prices come from the catalog service, never from the client.
     var quotes = commerce.quoteProducts(req.items());
     BigDecimal subtotal = BigDecimal.ZERO;
@@ -114,6 +134,10 @@ public class OrderService {
     }
 
     log.info("order created orderNumber={} total={}", order.getOrderNumber(), total);
+
+    // Publish event
+    publishEvent("order.created", order, "order created");
+
     return OrderResponse.from(order);
   }
 
@@ -129,6 +153,24 @@ public class OrderService {
       throw new com.marketforge.order.service.exception.IllegalTransitionException(
           "Illegal transition " + from + " -> " + target);
     }
+
+    // Manage inventory state transitions
+    if (target == OrderStatus.PAID) {
+      try {
+        commerce.confirmReservation(order.getId().toString());
+      } catch (Exception e) {
+        log.warn("confirm inventory reservation failed orderId={}: {}", order.getId(), e.getMessage());
+      }
+    } else if (target == OrderStatus.CANCELLED || target == OrderStatus.EXPIRED) {
+      if (from == OrderStatus.PENDING_PAYMENT) {
+        try {
+          commerce.releaseReservation(order.getId().toString());
+        } catch (Exception e) {
+          log.warn("release inventory reservation failed orderId={}: {}", order.getId(), e.getMessage());
+        }
+      }
+    }
+
     order.setStatus(target);
 
     OrderHistory entry = new OrderHistory();
@@ -141,13 +183,63 @@ public class OrderService {
     history.save(entry);
 
     log.info("order transition orderNumber={} {} -> {}", orderNumber, from, target);
+
+    // Publish event based on status
+    if (target == OrderStatus.PAID) {
+      publishEvent("order.paid", order, reason);
+    } else if (target == OrderStatus.CANCELLED) {
+      publishEvent("order.cancelled", order, reason);
+    }
+
     return OrderResponse.from(order);
+  }
+
+  @Transactional
+  public OrderResponse cancel(String orderNumber, String reason, String actorType, UUID actorId) {
+    return transition(orderNumber, OrderStatus.CANCELLED,
+        reason != null && !reason.isBlank() ? reason : "customer requested cancellation",
+        actorType != null ? actorType : "CUSTOMER",
+        actorId);
+  }
+
+  public List<OrderResponse> listOrders(UUID userId, boolean isAdmin) {
+    List<Order> list;
+    if (userId != null) {
+      list = orders.findByUserIdOrderByCreatedAtDesc(userId);
+    } else if (isAdmin) {
+      list = orders.findAllByOrderByCreatedAtDesc();
+    } else {
+      list = List.of();
+    }
+    return list.stream().map(OrderResponse::from).toList();
   }
 
   public OrderResponse getByOrderNumber(String orderNumber) {
     return orders.findByOrderNumber(orderNumber)
         .map(OrderResponse::from)
         .orElseThrow(() -> new NotFoundException("Order not found: " + orderNumber));
+  }
+
+  private void publishEvent(String routingKey, Order order, String reason) {
+    rabbitTemplate.ifPresent(rt -> {
+      try {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("eventId", UUID.randomUUID().toString());
+        payload.put("eventType", routingKey);
+        payload.put("orderId", order.getId().toString());
+        payload.put("orderNumber", order.getOrderNumber());
+        payload.put("userId", order.getUserId().toString());
+        payload.put("totalAmount", order.getTotalAmount());
+        payload.put("status", order.getStatus().name());
+        payload.put("reason", reason);
+        payload.put("timestamp", Instant.now().toString());
+
+        rt.convertAndSend(EXCHANGE, routingKey, payload);
+        log.info("published rabbitmq event routingKey={} orderNumber={}", routingKey, order.getOrderNumber());
+      } catch (Exception e) {
+        log.warn("failed to publish rabbitmq event routingKey={} orderNumber={}: {}", routingKey, order.getOrderNumber(), e.getMessage());
+      }
+    });
   }
 
   private String generateOrderNumber() {

@@ -30,4 +30,11 @@ public class PaymentController {
     return Map.of("success", true, "data", payments.get(paymentId));
   }
 
+  @PostMapping("/payments/webhook")
+  public Map<String, Object> webhook(
+      @RequestHeader(value = "X-Callback-Signature", required = false) String signature,
+      @RequestBody Map<String, Object> payload) {
+    Map<String, Object> result = payments.processWebhook(payload, signature);
+    return Map.of("success", true, "data", result);
+  }
 }
